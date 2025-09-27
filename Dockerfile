@@ -8,14 +8,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PASSWORD=kira \
     TZ=UTC
 
-# Install sudo and create coder user
-RUN apt-get update && apt-get install -y sudo \
-    && groupadd --gid 1000 coder \
-    && useradd --uid 1000 --gid coder --shell /bin/bash --create-home coder \
-    && mkdir -p /etc/sudoers.d \
-    && echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install essential system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
@@ -44,16 +36,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
     && npm install -g yarn pnpm \
     && rm -rf /var/lib/apt/lists/*
 
-# Download and install pre-built code-server
-RUN curl -fsSL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-amd64.tar.gz | tar -xzC /tmp \
-    && mv /tmp/code-server-${CODE_SERVER_VERSION}-linux-amd64 /usr/local/lib/code-server \
-    && ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
-
-# Switch to coder user
-USER coder
-WORKDIR /home/coder
-
-# Install Node.js development tools
+# Install Node.js development tools globally (as root)
 RUN npm install -g \
     # Express and web frameworks
     express-generator \
@@ -79,6 +62,24 @@ RUN npm install -g \
     http-server \
     live-server \
     json-server
+
+# Download and install pre-built code-server
+RUN curl -fsSL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-amd64.tar.gz | tar -xzC /tmp \
+    && mv /tmp/code-server-${CODE_SERVER_VERSION}-linux-amd64 /usr/local/lib/code-server \
+    && ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
+
+# Create coder user
+RUN groupadd --gid 1000 coder \
+    && useradd --uid 1000 --gid coder --shell /bin/bash --create-home coder \
+    && mkdir -p /etc/sudoers.d \
+    && echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
+
+# Install gosu for better user switching
+RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
+
+# Switch to coder user for remaining setup
+USER coder
+WORKDIR /home/coder
 
 # Create workspace and config directories
 RUN mkdir -p /home/coder/workspace \
@@ -243,9 +244,6 @@ echo ""\n\
 exec gosu coder code-server --bind-addr 0.0.0.0:8080 --auth password /home/coder/workspace\n\
 ' > /usr/local/bin/start-codeserver.sh \
     && chmod +x /usr/local/bin/start-codeserver.sh
-
-# Install gosu for better user switching
-RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
 
 # Set environment for password
 ENV PASSWORD=kira
