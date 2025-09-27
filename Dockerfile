@@ -3,7 +3,8 @@ FROM debian:bullseye AS base
 
 ENV DEBIAN_FRONTEND=noninteractive \
     NODE_VERSION=22 \
-    CODE_SERVER_DIR=/usr/local/lib/code-server
+    CODE_SERVER_DIR=/usr/local/lib/code-server \
+    PASSWORD=kira
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -37,12 +38,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
 # Stage 2: Build code-server from GitHub
 FROM base AS builder
 
-WORKDIR /tmp
+WORKDIR /tmp/code-server-build
 
-# Clone latest code-server repo
+# Clone latest code-server repo into new folder
 RUN git clone https://github.com/coder/code-server.git .
 
-# Build code-server using npm (yarn deprecated)
+# Build code-server using npm
 RUN npm install --legacy-peer-deps \
     && npm run build \
     && npm run release
@@ -51,7 +52,7 @@ RUN npm install --legacy-peer-deps \
 FROM base
 
 # Copy built code-server from builder
-COPY --from=builder /tmp/release-linux-amd64/ $CODE_SERVER_DIR/
+COPY --from=builder /tmp/code-server-build/release-linux-amd64/ $CODE_SERVER_DIR/
 RUN ln -s $CODE_SERVER_DIR/code-server /usr/local/bin/code-server
 
 # Create coder user
@@ -68,7 +69,7 @@ WORKDIR /home/coder
 RUN mkdir -p /home/coder/.config/code-server
 RUN echo "bind-addr: 0.0.0.0:8080" > /home/coder/.config/code-server/config.yaml \
     && echo "auth: password" >> /home/coder/.config/code-server/config.yaml \
-    && echo "password: coder" >> /home/coder/.config/code-server/config.yaml \
+    && echo "password: ${PASSWORD}" >> /home/coder/.config/code-server/config.yaml \
     && echo "cert: false" >> /home/coder/.config/code-server/config.yaml \
     && echo "disable-telemetry: true" >> /home/coder/.config/code-server/config.yaml
 
