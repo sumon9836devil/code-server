@@ -7,7 +7,7 @@ ENTRYPOINT []
 # Environment variables
 ENV PASSWORD="@kira"
 ENV SUDO_PASSWORD="@kira"
-ENV NODE_VERSION=lts  # Latest Node.js LTS
+ENV NODE_VERSION=lts
 
 # Switch to root for installations
 USER root
