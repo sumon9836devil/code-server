@@ -7,7 +7,6 @@ ENTRYPOINT []
 # Environment variables
 ENV PASSWORD="@kira"
 ENV SUDO_PASSWORD="@kira"
-ENV NODE_VERSION=lts
 
 # Switch to root for installations
 USER root
@@ -15,7 +14,7 @@ USER root
 # Allow coder user to use sudo without password
 RUN echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Install essential tools and Node.js LTS
+# Install essential tools, Node.js, and Rust
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -31,9 +30,11 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     gnupg \
     lsb-release \
+    rustc \
+    cargo \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js LTS from NodeSource
+# Install Node.js LTS (official NodeSource)
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g npm@latest yarn pnpm typescript eslint nodemon pm2 \
@@ -46,6 +47,9 @@ WORKDIR /home/coder
 
 # Create workspace
 RUN mkdir -p /home/coder/workspace
+
+# Install Rust Analyzer extension for code-server
+RUN code-server --install-extension rust-lang.rust-analyzer
 
 # Expose default code-server port
 EXPOSE 8080
