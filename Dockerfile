@@ -1,28 +1,10 @@
-# Multi-stage build for optimized image
-FROM node:20-bullseye as builder
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    python3 \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-# Clone and build code-server from official repository
-WORKDIR /tmp
-RUN git clone https://github.com/coder/code-server.git \
-    && cd code-server \
-    && npm ci \
-    && npm run build \
-    && npm run build:vscode \
-    && npm run release:standalone
-
-# Production stage
+# Use Ubuntu as base image
 FROM ubuntu:22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
     NODE_VERSION=20 \
+    CODE_SERVER_VERSION=4.95.3 \
     PASSWORD=kira \
     TZ=UTC
 
@@ -62,9 +44,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
     && npm install -g yarn pnpm \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy code-server from builder stage
-COPY --from=builder /tmp/code-server/release-standalone/code-server-*-linux-amd64 /usr/local/lib/code-server
-RUN ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
+# Download and install pre-built code-server
+RUN curl -fsSL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-amd64.tar.gz | tar -xzC /tmp \
+    && mv /tmp/code-server-${CODE_SERVER_VERSION}-linux-amd64 /usr/local/lib/code-server \
+    && ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
 
 # Switch to coder user
 USER coder
