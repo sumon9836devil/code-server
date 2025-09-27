@@ -26,10 +26,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PASSWORD=kira \
     TZ=UTC
 
-# Create coder user first
-RUN groupadd --gid 1000 coder \
+# Install sudo and create coder user
+RUN apt-get update && apt-get install -y sudo \
+    && groupadd --gid 1000 coder \
     && useradd --uid 1000 --gid coder --shell /bin/bash --create-home coder \
-    && echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
+    && mkdir -p /etc/sudoers.d \
+    && echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install essential system dependencies
 RUN apt-get update && apt-get install -y \
