@@ -12,10 +12,10 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /tmp
 RUN git clone https://github.com/coder/code-server.git \
     && cd code-server \
-    && yarn install --frozen-lockfile \
-    && yarn build \
-    && yarn build:vscode \
-    && yarn release:standalone
+    && npm ci \
+    && npm run build \
+    && npm run build:vscode \
+    && npm run release:standalone
 
 # Production stage
 FROM ubuntu:22.04
