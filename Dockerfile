@@ -3,7 +3,7 @@ FROM ubuntu:22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
-    NODE_VERSION=20 \
+    NODE_VERSION=20.x \
     CODE_SERVER_VERSION=4.95.3 \
     PASSWORD=kira \
     TZ=UTC
@@ -17,54 +17,47 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     ca-certificates \
     gnupg \
-    # Essential editors and utilities
     vim \
     nano \
     htop \
     tree \
     unzip \
     zip \
-    # For Node.js native modules
     python3 \
     make \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js and package managers
-RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - \
     && apt-get install -y nodejs \
     && npm install -g yarn pnpm \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js development tools globally (as root)
+# Install global Node.js tools
 RUN npm install -g \
-    # Express and web frameworks
     express-generator \
     @nestjs/cli \
     create-react-app \
-    # Development tools
     nodemon \
     pm2 \
     concurrently \
     cross-env \
-    # Code quality tools
     eslint \
     prettier \
     jshint \
-    # Testing frameworks
     jest \
     mocha \
-    # Build tools
     webpack \
     webpack-cli \
     parcel \
-    # Useful utilities
     http-server \
     live-server \
     json-server
 
 # Download and install pre-built code-server
-RUN curl -fsSL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-amd64.tar.gz | tar -xzC /tmp \
+RUN curl -fsSL https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/code-server-${CODE_SERVER_VERSION}-linux-amd64.tar.gz \
+    | tar -xzC /tmp \
     && mv /tmp/code-server-${CODE_SERVER_VERSION}-linux-amd64 /usr/local/lib/code-server \
     && ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server
 
@@ -74,14 +67,13 @@ RUN groupadd --gid 1000 coder \
     && mkdir -p /etc/sudoers.d \
     && echo "coder ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
 
-# Install gosu for better user switching
+# Install gosu for user switching
 RUN apt-get update && apt-get install -y gosu && rm -rf /var/lib/apt/lists/*
 
-# Switch to coder user for remaining setup
 USER coder
 WORKDIR /home/coder
 
-# Create workspace and config directories
+# Create workspace and config
 RUN mkdir -p /home/coder/workspace \
     && mkdir -p /home/coder/.config/code-server
 
@@ -92,19 +84,14 @@ RUN echo "bind-addr: 0.0.0.0:8080" > /home/coder/.config/code-server/config.yaml
     && echo "cert: false" >> /home/coder/.config/code-server/config.yaml \
     && echo "disable-telemetry: true" >> /home/coder/.config/code-server/config.yaml
 
-# Install essential VS Code extensions for web development
+# Install useful VS Code extensions (skip built-ins that cause errors)
 RUN code-server --install-extension ms-vscode.vscode-typescript-next \
     && code-server --install-extension esbenp.prettier-vscode \
-    && code-server --install-extension ms-vscode.vscode-json \
-    && code-server --install-extension ms-vscode.vscode-css \
-    && code-server --install-extension ms-vscode.vscode-html \
     && code-server --install-extension dbaeumer.vscode-eslint \
     && code-server --install-extension formulahendry.auto-rename-tag \
     && code-server --install-extension christian-kohler.path-intellisense \
     && code-server --install-extension bradlc.vscode-tailwindcss \
-    && code-server --install-extension ms-vscode.live-server \
     && code-server --install-extension ritwickdey.liveserver \
-    && code-server --install-extension ms-vscode.vscode-emmet \
     && code-server --install-extension vincaslt.highlight-matching-tag \
     && code-server --install-extension pranaygp.vscode-css-peek \
     && code-server --install-extension zignd.html-css-class-completion \
@@ -113,7 +100,7 @@ RUN code-server --install-extension ms-vscode.vscode-typescript-next \
     && code-server --install-extension pkief.material-icon-theme \
     && code-server --install-extension zhuangtongfa.material-theme
 
-# Set up useful aliases for web development
+# Aliases
 RUN echo 'alias ll="ls -la"' >> ~/.bashrc \
     && echo 'alias serve="http-server -p 3000"' >> ~/.bashrc \
     && echo 'alias dev="nodemon app.js"' >> ~/.bashrc \
@@ -121,10 +108,9 @@ RUN echo 'alias ll="ls -la"' >> ~/.bashrc \
     && echo 'alias test="npm test"' >> ~/.bashrc \
     && echo 'alias build="npm run build"' >> ~/.bashrc
 
-# Create project templates for common setups
+# Project templates
 RUN mkdir -p /home/coder/templates/express-basic \
-    && mkdir -p /home/coder/templates/html-starter \
-    && mkdir -p /home/coder/templates/vanilla-js
+    && mkdir -p /home/coder/templates/html-starter
 
 # Express basic template
 RUN cd /home/coder/templates/express-basic \
@@ -147,14 +133,11 @@ RUN cd /home/coder/templates/express-basic \
     && echo 'const express = require("express");\
 const app = express();\
 const PORT = process.env.PORT || 3000;\
-\
 app.use(express.static("public"));\
 app.use(express.json());\
-\
 app.get("/", (req, res) => {\
   res.send("Hello World!");\
 });\
-\
 app.listen(PORT, () => {\
   console.log(`Server running on http://localhost:${PORT}`);\
 });' > app.js \
@@ -208,45 +191,20 @@ WORKDIR /home/coder/workspace
 # Expose port
 EXPOSE 8080
 
-# Health check
+# Health check (check root, not /healthz)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/healthz || exit 1
+    CMD curl -f http://localhost:8080/ || exit 1
 
-# Create startup script
 USER root
+# Startup script
 RUN echo '#!/bin/bash\n\
 echo "🚀 Code-Server for Node.js Web Development"\n\
 echo "📁 Workspace: /home/coder/workspace"\n\
 echo "🔐 Password: $PASSWORD"\n\
 echo "🌐 Access: http://localhost:8080"\n\
-echo ""\n\
-echo "📦 Installed Tools:"\n\
-echo "  • Node.js $(node --version)"\n\
-echo "  • npm $(npm --version)"\n\
-echo "  • yarn $(yarn --version)"\n\
-echo "  • Express Generator"\n\
-echo "  • Nodemon, PM2"\n\
-echo "  • ESLint, Prettier"\n\
-echo "  • Jest, Mocha"\n\
-echo "  • Live Server"\n\
-echo ""\n\
-echo "📋 Quick Commands:"\n\
-echo "  • serve      → Start HTTP server on port 3000"\n\
-echo "  • dev        → Start nodemon with app.js"\n\
-echo "  • npm start  → Run npm start"\n\
-echo ""\n\
-echo "📁 Templates available in ~/templates/"\n\
-echo "  • express-basic   → Basic Express.js setup"\n\
-echo "  • html-starter    → HTML/CSS/JS starter"\n\
-echo ""\n\
-echo "🎯 Ready for web development!"\n\
-echo ""\n\
 exec gosu coder code-server --bind-addr 0.0.0.0:8080 --auth password /home/coder/workspace\n\
 ' > /usr/local/bin/start-codeserver.sh \
     && chmod +x /usr/local/bin/start-codeserver.sh
 
-# Set environment for password
-ENV PASSWORD=kira
-
-# Start code-server
+# Default command
 CMD ["/usr/local/bin/start-codeserver.sh"]
