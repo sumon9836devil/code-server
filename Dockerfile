@@ -40,10 +40,13 @@ FROM base AS builder
 
 WORKDIR /tmp/code-server-build
 
-# Clone latest code-server repo into new folder
-RUN git clone https://github.com/coder/code-server.git .
+# Clone latest code-server repo with submodules
+RUN git clone --recursive https://github.com/coder/code-server.git .
 
-# Build code-server using npm
+# Skip running tests/extensions in postinstall
+ENV SKIP_EXTENSIONS=true
+
+# Install dependencies and build
 RUN npm install --legacy-peer-deps \
     && npm run build \
     && npm run release
